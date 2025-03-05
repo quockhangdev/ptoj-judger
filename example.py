@@ -27,6 +27,7 @@ int main()
     submission = Submission(
         timeLimit=1000, memoryLimit=32768, testcases=testcases,
         language=Language.C, code=code)
+    print(submission)
 
     async with SandboxClient(endpoint) as client:
         judger = Judger(client, submission)

@@ -21,6 +21,9 @@ class JudgeStatus(int, Enum):
     RejudgePending = 11
     Skipped = 12
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}.{self.name}"
+
 
 class SandboxStatus(str, Enum):
     Accepted = 'Accepted'
@@ -31,6 +34,9 @@ class SandboxStatus(str, Enum):
     NonzeroExitStatus = 'Nonzero Exit Status'
     Signalled = 'Signalled'
     InternalError = 'Internal Error'
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}.{self.name}"
 
 
 class Language(Enum):
