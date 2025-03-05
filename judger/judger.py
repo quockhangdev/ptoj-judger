@@ -1,6 +1,6 @@
 import asyncio
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Set, Union
 
 from .client import SandboxClient as Client
 from .config import DEFAULT_CHECKER
@@ -16,6 +16,12 @@ class DefaultChecker:
     CHECKER_AC = 0
     CHECKER_WA = 1
     CHECKER_PE = 2
+
+    STATUS_MAP: dict[int, JudgeStatus] = {
+        CHECKER_AC: JudgeStatus.Accepted,
+        CHECKER_WA: JudgeStatus.WrongAnswer,
+        CHECKER_PE: JudgeStatus.PresentationError
+    }
 
     def __init__(self, client: Client, code_file: Union[str, Path]):
         self.client = client
@@ -65,27 +71,35 @@ class DefaultChecker:
         )
         checker_result = (await self.client.run_command([cmd]))[0]
 
-        match checker_result.exitStatus:
-            case self.CHECKER_AC:
-                return JudgeStatus.Accepted
-            case self.CHECKER_WA:
-                return JudgeStatus.WrongAnswer
-            case self.CHECKER_PE:
-                return JudgeStatus.PresentationError
-            case _:
-                return JudgeStatus.SystemError
+        return self.STATUS_MAP.get(
+            checker_result.exitStatus, JudgeStatus.SystemError)
 
 
 class Judger:
 
-    STATUS_PRIORITY = [
+    STATUS_PRIORITY: List[JudgeStatus] = [
         JudgeStatus.SystemError,
         JudgeStatus.OutputLimitExceeded,
         JudgeStatus.MemoryLimitExceeded,
         JudgeStatus.TimeLimitExceeded,
         JudgeStatus.RuntimeError,
         JudgeStatus.WrongAnswer,
-        JudgeStatus.PresentationError]
+        JudgeStatus.PresentationError
+    ]
+
+    STATUS_MAP: dict[SandboxStatus, JudgeStatus] = {
+        SandboxStatus.MemoryLimitExceeded: JudgeStatus.MemoryLimitExceeded,
+        SandboxStatus.TimeLimitExceeded: JudgeStatus.TimeLimitExceeded,
+        SandboxStatus.OutputLimitExceeded: JudgeStatus.OutputLimitExceeded,
+        SandboxStatus.NonzeroExitStatus: JudgeStatus.RuntimeError,
+        SandboxStatus.Signalled: JudgeStatus.RuntimeError
+    }
+
+    SKIP_STATUS: Set[JudgeStatus] = {
+        JudgeStatus.MemoryLimitExceeded,
+        JudgeStatus.TimeLimitExceeded,
+        JudgeStatus.OutputLimitExceeded
+    }
 
     def __init__(self, client: Client, submission: Submission):
         self.client = client
@@ -136,35 +150,12 @@ class Judger:
                             self.submission.memoryLimit)
         output_file = PreparedFile(run_result.fileIds['stdout'])
 
-        match run_result.status:
-            case SandboxStatus.Accepted:
-                pass
-            case SandboxStatus.MemoryLimitExceeded:
-                result.status = JudgeStatus.MemoryLimitExceeded
-            case SandboxStatus.TimeLimitExceeded:
-                result.status = JudgeStatus.TimeLimitExceeded
-            case SandboxStatus.OutputLimitExceeded:
-                result.status = JudgeStatus.OutputLimitExceeded
-            case SandboxStatus.NonzeroExitStatus:
-                result.status = JudgeStatus.RuntimeError
-            case SandboxStatus.Signalled:
-                result.status = JudgeStatus.RuntimeError
-            case _:
-                result.status = JudgeStatus.SystemError
-
         if run_result.status == SandboxStatus.Accepted:
-            checker_result = await self.checker.check(
+            result.status = await self.checker.check(
                 testcase.input, testcase.output, output_file)
-
-            match checker_result:
-                case JudgeStatus.Accepted:
-                    result.status = JudgeStatus.Accepted
-                case JudgeStatus.WrongAnswer:
-                    result.status = JudgeStatus.WrongAnswer
-                case JudgeStatus.PresentationError:
-                    result.status = JudgeStatus.PresentationError
-                case _:
-                    result.status = JudgeStatus.SystemError
+        else:
+            result.status = self.STATUS_MAP.get(
+                run_result.status, JudgeStatus.SystemError)
 
         self.cleanup_tasks.append(asyncio.create_task(
             self.client.delete_file(output_file.fileId)))
@@ -203,10 +194,7 @@ class Judger:
                     testcase_result = TestcaseResult(
                         status=JudgeStatus.SystemError)
             self.result.testcases.append(testcase_result)
-            if testcase_result.status in {
-                    JudgeStatus.MemoryLimitExceeded,
-                    JudgeStatus.TimeLimitExceeded,
-                    JudgeStatus.OutputLimitExceeded}:
+            if testcase_result.status in self.SKIP_STATUS:
                 skipped = True
 
         self.result.time = max(
@@ -214,11 +202,13 @@ class Judger:
         self.result.memory = max(
             testcase.memory for testcase in self.result.testcases)
 
-        if all(testcase.status == JudgeStatus.Accepted for testcase in self.result.testcases):
+        if all(testcase.status == JudgeStatus.Accepted
+               for testcase in self.result.testcases):
             self.result.status = JudgeStatus.Accepted
         else:
             for status in self.STATUS_PRIORITY:
-                if any(testcase.status == status for testcase in self.result.testcases):
+                if any(testcase.status == status
+                       for testcase in self.result.testcases):
                     self.result.status = status
                     break
             else:
