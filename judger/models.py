@@ -63,7 +63,7 @@ class Collector:
 @dataclass
 class SandboxCmd:
     args: List[str]
-    env: List[str] = field(default_factory=list)
+    env: List[str] = field(default_factory=lambda: ["PATH=/usr/bin:/bin"])
 
     files: List[Union[LocalFile, MemoryFile, PreparedFile, Collector]] = \
         field(default_factory=list)

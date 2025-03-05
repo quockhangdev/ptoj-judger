@@ -7,18 +7,23 @@ from .models import SandboxCmd, SandboxResult, PreparedFile
 
 
 class SandboxClient:
-    def __init__(self, endpoint: str):
+    def __init__(self, endpoint: str) -> None:
         self.endpoint = endpoint.strip('/')
-
-    async def __aenter__(self):
         self.session = aiohttp.ClientSession()
+
+    async def __aenter__(self) -> 'SandboxClient':
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.close()
+
+    async def close(self) -> None:
         await self.session.close()
 
     async def run_command(
-            self, commands: List[SandboxCmd]) -> List[SandboxResult]:
+        self,
+        commands: List[SandboxCmd]
+    ) -> List[SandboxResult]:
         url = f'{self.endpoint}/run'
         payload = {"cmd": [asdict(c) for c in commands]}
         async with self.session.post(url, json=payload) as resp:
