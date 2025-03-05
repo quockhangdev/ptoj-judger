@@ -130,8 +130,11 @@ class Judger:
             copyOutCached=["stdout"])
         run_result = (await self.client.run_command([cmd]))[0]
 
-        result.time = run_result.time // 1_000_000
-        result.memory = run_result.memory // 1024
+        result.time = min(run_result.time // 1_000_000,
+                          self.submission.timeLimit)
+        result.memory = min(run_result.memory // 1024,
+                            self.submission.memoryLimit)
+        output_file = PreparedFile(run_result.fileIds['stdout'])
 
         match run_result.status:
             case SandboxStatus.Accepted:
@@ -150,8 +153,6 @@ class Judger:
                 result.status = JudgeStatus.SystemError
 
         if run_result.status == SandboxStatus.Accepted:
-
-            output_file = PreparedFile(run_result.fileIds['stdout'])
             checker_result = await self.checker.check(
                 testcase.input, testcase.output, output_file)
 
@@ -165,9 +166,8 @@ class Judger:
                 case _:
                     result.status = JudgeStatus.SystemError
 
-            self.cleanup_tasks.append(asyncio.create_task(
-                self.client.delete_file(output_file.fileId)))
-
+        self.cleanup_tasks.append(asyncio.create_task(
+            self.client.delete_file(output_file.fileId)))
         return result
 
     async def _run(self) -> None:
@@ -179,7 +179,7 @@ class Judger:
                 self.result.status = JudgeStatus.CompileError
                 self.result.error = str(e)
                 return
-            
+
         if len(self.submission.testcases) == 0:
             self.result.status = JudgeStatus.SystemError
             self.result.error = "No testcases provided"
@@ -209,8 +209,10 @@ class Judger:
                     JudgeStatus.OutputLimitExceeded}:
                 skipped = True
 
-        self.result.time = max(testcase.time for testcase in self.result.testcases)
-        self.result.memory = max(testcase.memory for testcase in self.result.testcases)
+        self.result.time = max(
+            testcase.time for testcase in self.result.testcases)
+        self.result.memory = max(
+            testcase.memory for testcase in self.result.testcases)
 
         if all(testcase.status == JudgeStatus.Accepted for testcase in self.result.testcases):
             self.result.status = JudgeStatus.Accepted
