@@ -107,7 +107,9 @@ class Judger:
 
     def _init(self) -> None:
         self.lang_conf = LanguageRegistry.get_config(self.submission.language)
-        self.result = SubmissionResult(status=JudgeStatus.RunningJudge)
+        self.result = SubmissionResult(
+            sid=self.submission.sid,
+            judge=JudgeStatus.RunningJudge)
         self.checker = DefaultChecker(self.client, DEFAULT_CHECKER)
         self.compiled_file: Optional[PreparedFile] = None
         self.cleanup_tasks: List[asyncio.Task] = []
@@ -133,7 +135,9 @@ class Judger:
 
     async def _run_testcase(self, testcase: Testcase) -> TestcaseResult:
 
-        result = TestcaseResult(status=JudgeStatus.RunningJudge)
+        result = TestcaseResult(
+            uuid=testcase.uuid,
+            judge=JudgeStatus.RunningJudge)
 
         cmd = SandboxCmd(
             args=self.lang_conf.run_cmd,
@@ -151,10 +155,10 @@ class Judger:
         output_file = PreparedFile(run_result.fileIds['stdout'])
 
         if run_result.status == SandboxStatus.Accepted:
-            result.status = await self.checker.check(
+            result.judge = await self.checker.check(
                 testcase.input, testcase.output, output_file)
         else:
-            result.status = self.STATUS_MAP.get(
+            result.judge = self.STATUS_MAP.get(
                 run_result.status, JudgeStatus.SystemError)
 
         self.cleanup_tasks.append(asyncio.create_task(
@@ -167,34 +171,37 @@ class Judger:
             try:
                 await self._compile()
             except Exception as e:
-                self.result.status = JudgeStatus.CompileError
+                self.result.judge = JudgeStatus.CompileError
                 self.result.error = str(e)
                 return
 
         if len(self.submission.testcases) == 0:
-            self.result.status = JudgeStatus.SystemError
+            self.result.judge = JudgeStatus.SystemError
             self.result.error = "No testcases provided"
             return
 
         try:
             await self.checker._prepare()
         except Exception as e:
-            self.result.status = JudgeStatus.SystemError
+            self.result.judge = JudgeStatus.SystemError
             self.result.error = str(e)
             return
 
         skipped = False
         for testcase in self.submission.testcases:
             if skipped:
-                testcase_result = TestcaseResult(status=JudgeStatus.Skipped)
+                testcase_result = TestcaseResult(
+                    uuid=testcase.uuid,
+                    judge=JudgeStatus.Skipped)
             else:
                 try:
                     testcase_result = await self._run_testcase(testcase)
                 except Exception as e:
                     testcase_result = TestcaseResult(
-                        status=JudgeStatus.SystemError)
+                        uuid=testcase.uuid,
+                        judge=JudgeStatus.SystemError)
             self.result.testcases.append(testcase_result)
-            if testcase_result.status in self.SKIP_STATUS:
+            if testcase_result.judge in self.SKIP_STATUS:
                 skipped = True
 
         self.result.time = max(
@@ -202,17 +209,17 @@ class Judger:
         self.result.memory = max(
             testcase.memory for testcase in self.result.testcases)
 
-        if all(testcase.status == JudgeStatus.Accepted
+        if all(testcase.judge == JudgeStatus.Accepted
                for testcase in self.result.testcases):
-            self.result.status = JudgeStatus.Accepted
+            self.result.judge = JudgeStatus.Accepted
         else:
             for status in self.STATUS_PRIORITY:
-                if any(testcase.status == status
+                if any(testcase.judge == status
                        for testcase in self.result.testcases):
-                    self.result.status = status
+                    self.result.judge = status
                     break
             else:
-                self.result.status = JudgeStatus.SystemError
+                self.result.judge = JudgeStatus.SystemError
 
     async def run(self) -> SubmissionResult:
         self._init()
@@ -220,7 +227,7 @@ class Judger:
         try:
             await self._run()
         except Exception as e:
-            JudgeStatus.SystemError
+            self.result.judge = JudgeStatus.SystemError
             self.result.error = str(e)
         finally:
             await self._cleanup()

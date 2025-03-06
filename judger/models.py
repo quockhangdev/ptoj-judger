@@ -39,10 +39,13 @@ class SandboxStatus(str, Enum):
         return f"{self.__class__.__name__}.{self.name}"
 
 
-class Language(Enum):
+class Language(int, Enum):
     C = 1
     CPP = 2
     Java = 3
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}.{self.name}"
 
 
 @dataclass
@@ -110,12 +113,14 @@ class SandboxResult:
 
 @dataclass
 class Testcase:
+    uuid: str
     input: Union[LocalFile, MemoryFile]
     output: Union[LocalFile, MemoryFile]
 
 
 @dataclass
 class Submission:
+    sid: int
     timeLimit: int
     memoryLimit: int
     testcases: List[Testcase]
@@ -125,15 +130,17 @@ class Submission:
 
 @dataclass
 class TestcaseResult:
+    uuid: str
     time: int = field(default=0)
     memory: int = field(default=0)
-    status: JudgeStatus = field(default=JudgeStatus.Pending)
+    judge: JudgeStatus = field(default=JudgeStatus.Pending)
 
 
 @dataclass
 class SubmissionResult:
+    sid: int
     time: int = field(default=0)
     memory: int = field(default=0)
     testcases: List[TestcaseResult] = field(default_factory=list)
-    status: JudgeStatus = field(default=JudgeStatus.Pending)
+    judge: JudgeStatus = field(default=JudgeStatus.Pending)
     error: str = field(default='')
