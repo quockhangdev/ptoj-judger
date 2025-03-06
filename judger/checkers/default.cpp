@@ -7,7 +7,10 @@
 #define PE 2
 #define ERROR -1
 
-int spj(FILE *tc_input, FILE *tc_output, FILE *user_output);
+int spj(
+    FILE *tc_input,
+    FILE *tc_output,
+    FILE *user_output);
 
 void close_file(FILE *f)
 {
@@ -53,7 +56,11 @@ bool is_space_char(int c)
     return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
-void compare_until_nonspace(int &c_std, int &c_usr, FILE *&fd_std, FILE *&fd_usr, int &ret)
+void compare_until_nonspace(
+    int &c_std,
+    int &c_usr,
+    FILE *&fd_std,
+    FILE *&fd_usr, int &ret)
 {
     while (isspace(c_std) || isspace(c_usr))
     {
@@ -81,16 +88,25 @@ void compare_until_nonspace(int &c_std, int &c_usr, FILE *&fd_std, FILE *&fd_usr
     }
 }
 
-int spj(FILE *tc_input, FILE *tc_output, FILE *user_output)
+int spj(
+    FILE *tc_input,
+    FILE *tc_output,
+    FILE *user_output)
 {
     int ret = AC;
     int c_std, c_usr;
 
     c_std = fgetc(tc_output);
     c_usr = fgetc(user_output);
+    
     while (true)
     {
-        compare_until_nonspace(c_std, c_usr, tc_output, user_output, ret);
+        compare_until_nonspace(
+            c_std,
+            c_usr,
+            tc_output,
+            user_output,
+            ret);
         while (!isspace(c_std) || !isspace(c_usr))
         {
             if (c_std == EOF && c_usr == EOF)
