@@ -20,10 +20,14 @@ class LanguageRegistry:
 
     @classmethod
     def register(cls, lang: Language, config: LanguageConfig) -> None:
+        if lang in cls._mapping:
+            raise ValueError("Language %s is already registered" % lang)
         cls._mapping[lang] = config
 
     @classmethod
     def get_config(cls, lang: Language) -> LanguageConfig:
+        if lang not in cls._mapping:
+            raise ValueError("Language %s is not registered" % lang)
         return cls._mapping[lang]
 
 
@@ -34,7 +38,7 @@ LanguageRegistry.register(
         compiled_filename="Main",
         need_compile=True,
         compile_cmd=[
-            "/usr/bin/g++", "Main.c", "-o", "Main",
+            "/usr/bin/gcc", "Main.c", "-o", "Main",
             "-std=c11", "-Wall", "-lm", "--static",
             "-fmax-errors=3", "-DONLINE_JUDGE", "-w"
         ],

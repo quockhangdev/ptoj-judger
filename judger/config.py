@@ -1,5 +1,7 @@
 from pathlib import Path
 
+# Logger 名称
+LOGGER_NAME = 'judger'
 # CPU 时间限制，单位纳秒 (10 秒)
 DEFAULT_TIME_LIMIT = 10_000_000_000
 # 内存限制，单位 Byte (256MB)
