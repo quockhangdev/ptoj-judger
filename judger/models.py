@@ -43,6 +43,7 @@ class Language(int, Enum):
     C = 1
     CPP = 2
     Java = 3
+    Python = 4
 
     def __repr__(self):
         return f"{self.__class__.__name__}.{self.name}"

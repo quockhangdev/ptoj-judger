@@ -38,11 +38,13 @@ LanguageRegistry.register(
         compiled_filename="Main",
         need_compile=True,
         compile_cmd=[
-            "/usr/bin/gcc", "Main.c", "-o", "Main",
-            "-std=c11", "-Wall", "-lm", "--static",
-            "-fmax-errors=3", "-DONLINE_JUDGE", "-w"
+            "/usr/bin/gcc-12", "Main.c", "-o", "Main",
+            "-std=c11", "-O2", "-lm", "-DONLINE_JUDGE",
+            "-w", "-fmax-errors=3", "--static"
         ],
-        run_cmd=["./Main"]
+        run_cmd=[
+            "./Main"
+        ]
     )
 )
 
@@ -53,10 +55,48 @@ LanguageRegistry.register(
         compiled_filename="Main",
         need_compile=True,
         compile_cmd=[
-            "/usr/bin/g++", "Main.cpp", "-o", "Main",
-            "-std=c++11", "-Wall", "-lm", "--static",
-            "-fmax-errors=3", "-DONLINE_JUDGE", "-w"
+            "/usr/bin/g++-12", "Main.cpp", "-o", "Main",
+            "-std=c++11", "-O2", "-lm", "-DONLINE_JUDGE",
+            "-w", "-fmax-errors=3", "--static"
         ],
-        run_cmd=["./Main"]
+        run_cmd=[
+            "./Main"
+        ]
+    )
+)
+
+LanguageRegistry.register(
+    Language.Java,
+    LanguageConfig(
+        source_filename="Main.java",
+        compiled_filename="Main.class",
+        need_compile=True,
+        compile_cmd=[
+            "/usr/bin/javac", "Main.java", "-encoding", "UTF-8"
+        ],
+        run_cmd=[
+            "/usr/bin/java", "-DONLINE_JUDGE", "Main"
+        ],
+        time_factor=2,
+        memory_factor=2
+    )
+)
+
+LanguageRegistry.register(
+    Language.Python,
+    LanguageConfig(
+        source_filename="Main.py",
+        compiled_filename="Main.pyc",
+        need_compile=True,
+        compile_cmd=[
+            "/usr/bin/bash", "-c", " ".join([
+                "/usr/bin/python3.11", "-m", "py_compile", "Main.py", "&&",
+                "mv", "__pycache__/Main.cpython-311.pyc", "Main.pyc"
+            ])
+        ],
+        run_cmd=[
+            "/usr/bin/env", "ONLINE_JUDGE=1",
+            "/usr/bin/python3.11", "Main.pyc"
+        ]
     )
 )

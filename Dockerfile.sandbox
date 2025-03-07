@@ -5,8 +5,8 @@ FROM debian:12
 WORKDIR /opt
 
 RUN apt-get update && \
-    apt-get install -y gcc g++ && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y gcc-12 g++-12 openjdk-17-jdk python3.11 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY --from=go-judge /opt/go-judge /opt/mount.yaml /opt/
 

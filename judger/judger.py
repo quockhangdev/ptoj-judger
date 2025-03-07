@@ -13,10 +13,14 @@ logger = logging.getLogger(f"{LOGGER_NAME}.judger")
 
 class DefaultChecker:
 
-    SOURCE_FILENAME = "SPJ.c"
-    COMPILED_FILENAME = "SPJ"
-    COMPILE_CMD = ["/usr/bin/g++", "SPJ.c", "-o", "SPJ"]
-    RUN_CMD = ["./SPJ", "tc.in", 'tc.out', 'user.out']
+    SOURCE_FILENAME: str = "SPJ.c"
+    COMPILED_FILENAME: str = "SPJ"
+    COMPILE_CMD: List[str] = [
+        "/usr/bin/g++-12", "SPJ.c", "-o", "SPJ"
+    ]
+    RUN_CMD: List[str] = [
+        "./SPJ", "tc.in", 'tc.out', 'user.out'
+    ]
 
     STATUS_MAP: dict[int, JudgeStatus] = {
         0: JudgeStatus.Accepted,
@@ -62,7 +66,9 @@ class DefaultChecker:
                 self.COMPILED_FILENAME
             ]
         )
-        compiled_result = (await self.client.run_command([cmd]))[0]
+        compiled_result = (
+            await self.client.run_command([cmd])
+        )[0]
 
         if compiled_result.status != SandboxStatus.Accepted:
             raise RuntimeError(
@@ -71,8 +77,12 @@ class DefaultChecker:
             )
         self.compiled_file = PreparedFile(compiled_result.fileIds['SPJ'])
 
-    async def check(self, input_file: PreparedFile, output_file: PreparedFile,
-                    user_file: PreparedFile) -> JudgeStatus:
+    async def check(
+        self,
+        input_file: Union[LocalFile, MemoryFile, PreparedFile],
+        output_file: Union[LocalFile, MemoryFile, PreparedFile],
+        user_file: Union[LocalFile, MemoryFile, PreparedFile]
+    ) -> JudgeStatus:
         logger.debug(
             "Checking with 'tc.in': %s, 'tc.out': %s, 'user.out': %s",
             input_file, output_file, user_file
@@ -94,7 +104,9 @@ class DefaultChecker:
                 "user.out": user_file
             }
         )
-        checker_result = (await self.client.run_command([cmd]))[0]
+        checker_result = (
+            await self.client.run_command([cmd])
+        )[0]
 
         if checker_result.exitStatus not in self.STATUS_MAP:
             raise RuntimeError(
@@ -231,19 +243,38 @@ class Judger:
                         MemoryFile(self.submission.code)
                 }
 
+        timeLimit = 1_000_000 * \
+            self.submission.timeLimit * self.language.time_factor
+        memoryLimit = 1024 * \
+            self.submission.memoryLimit * self.language.memory_factor
+
         cmd = SandboxCmd(
             args=self.language.run_cmd,
-            cpuLimit=self.submission.timeLimit * 1_000_000,
-            memoryLimit=self.submission.memoryLimit * 1024,
-            files=[testcase.input, Collector("stdout"), Collector("stderr")],
+            cpuLimit=timeLimit,
+            clockLimit=timeLimit * 2,
+            memoryLimit=memoryLimit,
+            files=[
+                testcase.input,
+                Collector("stdout"),
+                Collector("stderr")
+            ],
             copyIn=get_runtime_dependencies(),
-            copyOutCached=["stdout"])
-        run_result = (await self.client.run_command([cmd]))[0]
+            copyOutCached=[
+                "stdout"
+            ]
+        )
+        run_result = (
+            await self.client.run_command([cmd])
+        )[0]
 
-        result.time = min(run_result.time // 1_000_000,
-                          self.submission.timeLimit)
-        result.memory = min(run_result.memory // 1024,
-                            self.submission.memoryLimit)
+        result.time = min(
+            run_result.time // 1_000_000,
+            self.submission.timeLimit
+        )
+        result.memory = min(
+            run_result.memory // 1024,
+            self.submission.memoryLimit
+        )
         output_file = PreparedFile(run_result.fileIds['stdout'])
 
         if run_result.status == SandboxStatus.Accepted:
@@ -253,10 +284,15 @@ class Judger:
             result.judge = self.STATUS_MAP.get(
                 run_result.status, JudgeStatus.SystemError)
 
-        self.cleanup_tasks.append(asyncio.create_task(
-            self.client.delete_file(output_file.fileId)))
-        logger.debug("Testcase '%s' finished with judge status: '%s'",
-                     testcase.uuid, result.judge)
+        self.cleanup_tasks.append(
+            asyncio.create_task(
+                self.client.delete_file(output_file.fileId)
+            )
+        )
+        logger.debug(
+            "Testcase '%s' finished with judge status: '%s'",
+            testcase.uuid, result.judge
+        )
         return result
 
     async def cleanup(self) -> None:
