@@ -5,7 +5,7 @@ from typing import List, Optional, Set, Union
 
 from .client import SandboxClient as Client
 from .config import DEFAULT_CHECKER, LOGGER_NAME
-from .language import LanguageConfig, LanguageRegistry
+from .language import LanguageRegistry
 from .models import *
 
 logger = logging.getLogger(f"{LOGGER_NAME}.judger")

@@ -114,8 +114,8 @@ class SandboxResult:
 @dataclass
 class Testcase:
     uuid: str
-    input: Union[LocalFile, MemoryFile]
-    output: Union[LocalFile, MemoryFile]
+    input: Union[LocalFile, MemoryFile, PreparedFile]
+    output: Union[LocalFile, MemoryFile, PreparedFile]
 
 
 @dataclass
