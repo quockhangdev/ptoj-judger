@@ -2,8 +2,13 @@ from enum import Enum
 from dataclasses import dataclass, field
 from typing import Union, Dict, Optional, List
 
-from .config import DEFAULT_TIME_LIMIT, DEFAULT_MEMORY_LIMIT, \
-    DEFAULT_PROC_LIMIT, DEFAULT_CPU_RATE_LIMIT, DEFAULT_OUTPUT_LIMIT
+from .config import (
+    DEFAULT_TIME_LIMIT,
+    DEFAULT_MEMORY_LIMIT,
+    DEFAULT_PROC_LIMIT,
+    DEFAULT_CPU_RATE_LIMIT,
+    DEFAULT_OUTPUT_LIMIT
+)
 
 
 class JudgeStatus(int, Enum):
@@ -118,6 +123,25 @@ class Testcase:
     input: Union[LocalFile, MemoryFile, PreparedFile]
     output: Union[LocalFile, MemoryFile, PreparedFile]
 
+    def _prase_file(
+        self,
+        raw: Dict[str, str]
+    ) -> Union[LocalFile, MemoryFile, PreparedFile]:
+        if 'src' in raw:
+            return LocalFile(raw['src'])
+        elif 'fileId' in raw:
+            return PreparedFile(raw['fileId'])
+        elif 'content' in raw:
+            return MemoryFile(raw['content'])
+        else:
+            raise ValueError("Invalid input %s" % raw)
+
+    def __post_init__(self):
+        if not isinstance(self.input, (LocalFile, MemoryFile, PreparedFile)):
+            self.input = self._prase_file(self.input)
+        if not isinstance(self.output, (LocalFile, MemoryFile, PreparedFile)):
+            self.output = self._prase_file(self.output)
+
 
 @dataclass
 class Submission:
@@ -127,6 +151,13 @@ class Submission:
     testcases: List[Testcase]
     language: Language
     code: str
+
+    def __post_init__(self):
+        if not isinstance(self.language, Language):
+            self.language = Language(self.language)
+        for i in range(len(self.testcases)):
+            if not isinstance(self.testcases[i], Testcase):
+                self.testcases[i] = Testcase(**self.testcases[i])
 
 
 @dataclass

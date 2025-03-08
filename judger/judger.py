@@ -3,10 +3,22 @@ import logging
 from pathlib import Path
 from typing import List, Optional, Set, Union
 
-from .client import SandboxClient as Client
+from .client import SandboxClient
 from .config import DEFAULT_CHECKER, LOGGER_NAME
 from .language import LanguageRegistry
-from .models import *
+from .models import (
+    JudgeStatus,
+    SandboxStatus,
+    LocalFile,
+    MemoryFile,
+    PreparedFile,
+    Collector,
+    SandboxCmd,
+    Testcase,
+    Submission,
+    TestcaseResult,
+    SubmissionResult
+)
 
 logger = logging.getLogger(f"{LOGGER_NAME}.judger")
 
@@ -28,11 +40,19 @@ class DefaultChecker:
         2: JudgeStatus.PresentationError
     }
 
-    def __init__(self, client: Client, code_file: Union[str, Path]):
+    def __init__(
+        self,
+        client: SandboxClient,
+        code_file: Union[str, Path] = DEFAULT_CHECKER
+    ) -> None:
         self.client = client
         self.code_file = code_file
         self.compiled_file: Optional[PreparedFile] = None
-        logger.debug("Checker initialized with code file: '%s'", code_file)
+
+        logger.debug(
+            "Checker initialized with code file: '%s'",
+            code_file
+        )
 
     async def __aenter__(self) -> 'DefaultChecker':
         return self
@@ -142,7 +162,12 @@ class Judger:
         JudgeStatus.OutputLimitExceeded
     }
 
-    def __init__(self, client: Client, submission: Submission):
+    def __init__(
+        self,
+        client: SandboxClient,
+        submission: Submission,
+        checker: DefaultChecker
+    ) -> None:
         logger.debug(
             "Initialing Judger with client: %s, submission: %s",
             client, submission
@@ -150,10 +175,7 @@ class Judger:
         self.client = client
         self.submission = submission
 
-        self.checker = DefaultChecker(
-            self.client,
-            DEFAULT_CHECKER
-        )
+        self.checker = checker
         self.result = SubmissionResult(
             sid=self.submission.sid,
             judge=JudgeStatus.Pending
@@ -298,9 +320,6 @@ class Judger:
     async def cleanup(self) -> None:
         logger.debug("Submission %d cleanup started", self.submission.sid)
 
-        self.cleanup_tasks.append(
-            asyncio.create_task(self.checker.close())
-        )
         if self.compiled_file is not None:
             self.cleanup_tasks.append(
                 asyncio.create_task(
