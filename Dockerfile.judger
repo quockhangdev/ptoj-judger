@@ -1,0 +1,12 @@
+FROM python:3.11-slim
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY judger ./judger
+COPY main.py .
+
+RUN mkdir /app/logs
+
+CMD ["python", "main.py"]
