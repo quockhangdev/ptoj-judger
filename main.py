@@ -5,7 +5,6 @@ import signal
 import sys
 from typing import Optional
 
-from rich import print
 from rich.logging import RichHandler
 from rich.traceback import install as install_traceback
 
@@ -61,7 +60,7 @@ async def main():
         f"redis_url={redis_url}, "
         f"sandbox_endpoint={sandbox_endpoint}, "
         f"init_concurrent={init_concurrent}, "
-        f"log_file={log_file}"
+        f"log_file='{log_file}'"
     )
 
     scheduler = Scheduler(
