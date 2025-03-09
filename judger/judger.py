@@ -66,6 +66,8 @@ class DefaultChecker:
             logger.debug("Checker closed")
 
     async def compile(self) -> None:
+        if self.compiled_file is not None:
+            return
         logger.debug("Compiling checker")
 
         with open(self.code_file, 'rt', encoding='utf-8') as f:
