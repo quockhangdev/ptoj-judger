@@ -5,7 +5,7 @@ from dataclasses import asdict
 from time import time
 from typing import List, Optional
 
-import redis.asyncio as redis
+from redis.asyncio import Redis
 
 from .client import SandboxClient
 from .config import (
@@ -34,7 +34,6 @@ class Scheduler:
         self.redis_url = redis_url
         self.sandbox_endpoint = sandbox_endpoint
         self.init_concurrent = init_concurrent
-        self.redis_pool: Optional[redis.ConnectionPool] = None
         self.comsumers: List[asyncio.Task] = []
         self.is_running: bool = False
 
@@ -45,42 +44,43 @@ class Scheduler:
             f"init_concurrent={self.init_concurrent}"
         )
 
-    async def get_submission(self) -> Optional[Submission]:
-        async with redis.Redis.from_pool(
-            connection_pool=self.redis_pool
-        ) as conn:
-            while self.is_running:
-                pop_value = await conn.blpop(
-                    TASK_QUEUE_NAME,
-                    timeout=5
-                )
-                if pop_value is None:
-                    continue
+    async def get_submission(
+        self,
+        redis: Redis
+    ) -> Optional[Submission]:
+        while self.is_running:
+            pop_value = await redis.blpop(
+                TASK_QUEUE_NAME,
+                timeout=5
+            )
+            if pop_value is None:
+                continue
 
-                logger.debug("Get submission %s", pop_value)
-                _, value = pop_value
-                return Submission(**json.loads(value))
+            logger.debug("Get submission %s", pop_value)
+            _, value = pop_value
+            return Submission(**json.loads(value))
 
     async def put_result(
         self,
+        redis: Redis,
         result: SubmissionResult
     ) -> None:
-        async with redis.Redis.from_pool(
-            connection_pool=self.redis_pool
-        ) as conn:
-            logger.debug("Put result %s", result)
-            await conn.rpush(
-                RESULT_QUEUE_NAME,
-                json.dumps(asdict(result))
-            )
+        logger.debug("Put result %s", result)
+        await redis.rpush(
+            RESULT_QUEUE_NAME,
+            json.dumps(asdict(result))
+        )
 
     async def process(
         self,
         idx: int,
+        redis: Redis,
         client: SandboxClient,
         checker: DefaultChecker
     ) -> None:
-        submission = await self.get_submission()
+        submission = await self.get_submission(
+            redis=redis
+        )
         if submission is None:
             return
 
@@ -88,8 +88,10 @@ class Scheduler:
             "Processor %d processing submission %s",
             idx, submission
         )
+        start_time = time()
         await self.put_result(
-            SubmissionResult(
+            redis=redis,
+            result=SubmissionResult(
                 sid=submission.sid,
                 judge=JudgeStatus.RunningJudge
             )
@@ -98,11 +100,17 @@ class Scheduler:
         try:
             judger = Judger(client, submission, checker)
             result = await judger.get_result()
-            await self.put_result(result)
+            await self.put_result(
+                redis=redis,
+                result=result
+            )
 
+            end_time = time()
             logger.info(
-                "Processor %d finished submission %s with result %s",
-                idx, submission.sid, result.judge.name
+                "Processor %d finished submission %s "
+                "with result %s in %f seconds",
+                idx, submission.sid, result.judge.name,
+                (end_time - start_time)
             )
 
         except Exception as e:
@@ -122,13 +130,16 @@ class Scheduler:
 
         async with SandboxClient(
             endpoint=self.sandbox_endpoint
-        ) as client:
+        ) as client, Redis.from_url(
+            self.redis_url
+        ) as redis:
             async with DefaultChecker(
                 client=client
             ) as checker:
                 while self.is_running:
                     await self.process(
                         idx,
+                        redis,
                         client,
                         checker
                     )
@@ -136,9 +147,6 @@ class Scheduler:
 
     def start(self) -> None:
         logger.debug("Scheduler starting...")
-        self.redis_pool = redis.ConnectionPool.from_url(
-            url=self.redis_url
-        )
         self.is_running = True
         self.comsumers = [
             asyncio.create_task(self.processor(idx))
@@ -148,15 +156,8 @@ class Scheduler:
     async def wait(self) -> None:
         await asyncio.gather(*self.comsumers)
 
-    async def close(self) -> None:
-        if self.redis_pool is not None:
-            await self.redis_pool.disconnect()
-            self.redis_pool = None
-        logger.debug("Scheduler dependencies closed")
-
     async def stop(self) -> None:
         logger.debug("Scheduler stopping...")
         self.is_running = False
         await self.wait()
-        await self.close()
         logger.debug("Scheduler stopped")
