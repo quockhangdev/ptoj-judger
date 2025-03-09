@@ -12,10 +12,11 @@ from judger import Scheduler, LOGGER_NAME
 
 
 def setup_logger(
-    log_file: Optional[str] = None
+    log_file: Optional[str] = None,
+    debug: bool = True
 ) -> None:
     logger = logging.getLogger(LOGGER_NAME)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.DEBUG if debug else logging.INFO)
 
     console_handler = RichHandler(
         log_time_format="[%X.%f]",
@@ -51,8 +52,9 @@ async def main():
         'PTOJ_LOG_FILE',
         'judger.log'
     )
+    debug: bool = os.getenv('PTOJ_DEBUG', '1') == '1'
 
-    setup_logger(log_file)
+    setup_logger(log_file, debug)
 
     logger = logging.getLogger(f"{LOGGER_NAME}.main")
     logger.info(
