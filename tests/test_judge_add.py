@@ -21,19 +21,8 @@ testcases = [
     )
 ]
 
-@pytest.mark.asyncio
-async def test_accept():
 
-    code = r"""
-#include <stdio.h>
-int main()
-{
-    int a,b;
-    while(scanf("%d %d",&a, &b) != EOF)
-        printf("%d\n", a+b);
-    return 0;
-}
-"""
+async def judge_code(code: str) -> SubmissionResult:
     submission = Submission(
         sid=1,
         timeLimit=1000,
@@ -47,7 +36,24 @@ int main()
         async with DefaultChecker(client) as checker:
             judger = Judger(client, submission, checker)
             result = await judger.get_result()
-    
+    return result
+
+
+@pytest.mark.asyncio
+async def test_accept():
+
+    code = r"""
+#include <stdio.h>
+int main()
+{
+    int a,b;
+    while(scanf("%d %d",&a, &b) != EOF)
+        printf("%d\n", a+b);
+    return 0;
+}
+"""
+    result = await judge_code(code)
+
     assert result.judge == JudgeStatus.Accepted
     for testcase in result.testcases:
         assert testcase.judge == JudgeStatus.Accepted
