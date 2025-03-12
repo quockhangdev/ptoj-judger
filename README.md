@@ -32,4 +32,4 @@ See [example.py](example.py) and [main.py](main.py) for more details.
 pytest --cov=judger
 ```
 
-See [test](test) for more details.
+See [tests](tests) for more details.
