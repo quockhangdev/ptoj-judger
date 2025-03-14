@@ -73,7 +73,7 @@ int main()
     while(cin >> a >> b)
         cout << a+b << endl;
 }
-""", Language.CPP)
+""", Language.Cpp11)
 
     assert result.judge == JudgeStatus.Accepted
     for testcase in result.testcases:

@@ -49,7 +49,7 @@ LanguageRegistry.register(
 )
 
 LanguageRegistry.register(
-    Language.CPP,
+    Language.Cpp11,
     LanguageConfig(
         source_filename="Main.cpp",
         compiled_filename="Main",
@@ -57,6 +57,23 @@ LanguageRegistry.register(
         compile_cmd=[
             "/usr/bin/g++-12", "Main.cpp", "-o", "Main",
             "-std=c++11", "-O2", "-lm", "-DONLINE_JUDGE",
+            "-w", "-fmax-errors=3", "--static"
+        ],
+        run_cmd=[
+            "./Main"
+        ]
+    )
+)
+
+LanguageRegistry.register(
+    Language.Cpp17,
+    LanguageConfig(
+        source_filename="Main.cpp",
+        compiled_filename="Main",
+        need_compile=True,
+        compile_cmd=[
+            "/usr/bin/g++-12", "Main.cpp", "-o", "Main",
+            "-std=c++17", "-O2", "-lm", "-DONLINE_JUDGE",
             "-w", "-fmax-errors=3", "--static"
         ],
         run_cmd=[

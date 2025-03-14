@@ -46,9 +46,10 @@ class SandboxStatus(str, Enum):
 
 class Language(int, Enum):
     C = 1
-    CPP = 2
+    Cpp11 = 2
     Java = 3
     Python = 4
+    Cpp17 = 5
 
     def __repr__(self):
         return f"{self.__class__.__name__}.{self.name}"
