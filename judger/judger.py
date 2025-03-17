@@ -291,14 +291,9 @@ class Judger:
             await self.client.run_command([cmd])
         )[0]
 
-        result.time = min(
-            run_result.time // 1_000_000,
-            self.submission.timeLimit
-        )
-        result.memory = min(
-            run_result.memory // 1024,
-            self.submission.memoryLimit
-        )
+        result.time = min(run_result.time, timeLimit) // 1_000_000
+        result.memory = min(run_result.memory, memoryLimit) // 1024
+
         output_file = PreparedFile(run_result.fileIds['stdout'])
 
         if run_result.status == SandboxStatus.Accepted:
