@@ -86,13 +86,16 @@ LanguageRegistry.register(
     Language.Java,
     LanguageConfig(
         source_filename="Main.java",
-        compiled_filename="Main.class",
+        compiled_filename="Main.jar",
         need_compile=True,
         compile_cmd=[
-            "/usr/bin/javac", "Main.java", "-encoding", "UTF-8"
+            "/usr/bin/bash", "-c", " ".join([
+                "/usr/bin/javac", "Main.java", "-encoding", "UTF-8", "&&",
+                "/usr/bin/jar", "cvf", "Main.jar", "*.class"
+            ])
         ],
         run_cmd=[
-            "/usr/bin/java", "-DONLINE_JUDGE", "Main"
+            "/usr/bin/java", "-DONLINE_JUDGE", "-cp", "Main.jar", "Main"
         ],
         time_factor=2,
         memory_factor=2
