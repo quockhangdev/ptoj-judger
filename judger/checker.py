@@ -70,7 +70,8 @@ class TestlibChecker:
             with open(TESTLIB_PATH, 'rt', encoding='utf-8') as f:
                 testlib_code = f.read()
 
-            testlib_file = await self.client.upload_file(testlib_code)
+            testlib_file = await self.client.upload_file(
+                content=testlib_code, filename="testlib.h")
             await self.client.cache.set("testlib.h", testlib_file)
             logger.debug("Uploaded testlib header file")
 

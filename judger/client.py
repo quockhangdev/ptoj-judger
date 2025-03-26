@@ -164,10 +164,14 @@ class SandboxClient:
             logger.debug("Received run results: %s", results)
             return [SandboxResult(**result) for result in results]
 
-    async def upload_file(self, content: str) -> PreparedFile:
+    async def upload_file(
+        self,
+        content: str,
+        filename: str = 'file.txt'
+    ) -> PreparedFile:
         url = f'{self.endpoint}/file'
         data = FormData()
-        data.add_field('file', content, filename='file.txt')
+        data.add_field('file', content, filename=filename)
         logger.debug("Uploading file with %d bytes", len(content))
 
         async with self.session.post(url, data=data) as resp:
