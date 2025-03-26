@@ -95,6 +95,10 @@ public class Main {
 	}
 }
 """, Language.Java)
+    
+    assert result.judge == JudgeStatus.Accepted
+    for testcase in result.testcases:
+        assert testcase.judge == JudgeStatus.Accepted
 
 
 @pytest.mark.asyncio
