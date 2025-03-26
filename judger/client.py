@@ -1,4 +1,5 @@
 import aiohttp
+import asyncio
 import logging
 from aiohttp import FormData
 from dataclasses import asdict
@@ -10,10 +11,130 @@ from .models import SandboxCmd, SandboxResult, PreparedFile
 logger = logging.getLogger(f"{LOGGER_NAME}.client")
 
 
+class FileCache:
+    def __init__(
+        self,
+        client: 'SandboxClient',
+        expire: float = 60 * 60,
+        recycle_gap: float = 60
+    ) -> None:
+        self.client = client
+        self.expire = expire
+        self.recycle_gap = recycle_gap
+        self.files: Dict[str, PreparedFile] = {}
+        self.last_access: Dict[str, float] = {}
+        self.recycle_task: Optional[asyncio.Task[None]] = None
+        self.cleanup_tasks: List[asyncio.Task[None]] = []
+        self._lock = asyncio.Lock()
+        self._closed = False
+
+        logger.debug(
+            "File cache initialized with expire=%s, recycle_gap=%s",
+            expire, recycle_gap
+        )
+
+    async def __aenter__(self) -> 'FileCache':
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.close()
+
+    async def close(self) -> None:
+        if self._closed:
+            return
+
+        self._closed = True
+        if self.recycle_task:
+            self.recycle_task.cancel()
+            try:
+                await self.recycle_task
+            except asyncio.CancelledError:
+                pass
+
+        async with self._lock:
+            for identifier, file in self.files.items():
+                logger.debug("Cleaning up file '%s' on close", identifier)
+                self.cleanup_tasks.append(
+                    asyncio.create_task(self.client.delete_file(file.fileId))
+                )
+            if self.cleanup_tasks:
+                await asyncio.gather(*self.cleanup_tasks)
+
+            self.files.clear()
+            self.last_access.clear()
+
+        logger.debug("File cache closed")
+
+    def time(self) -> float:
+        return asyncio.get_event_loop().time()
+
+    async def _recycle(self) -> None:
+        async with self._lock:
+            current_time = self.time()
+            to_delete = [
+                (identifier, self.files[identifier].fileId)
+                for identifier, last_access in self.last_access.items()
+                if current_time - last_access > self.expire
+            ]
+
+            for identifier, file_id in to_delete:
+                logger.debug("Recycling expired file '%s'", identifier)
+                self.cleanup_tasks.append(
+                    asyncio.create_task(self.client.delete_file(file_id))
+                )
+                self.files.pop(identifier, None)
+                self.last_access.pop(identifier, None)
+
+            for task in self.cleanup_tasks:
+                if task.done():
+                    self.cleanup_tasks.remove(task)
+
+    async def recycle(self) -> None:
+        try:
+            while not self._closed:
+                await self._recycle()
+                await asyncio.sleep(self.recycle_gap)
+        except asyncio.CancelledError:
+            logger.debug("Recycle task cancelled")
+            raise
+
+    async def get(self, identifier: str) -> Optional[PreparedFile]:
+        async with self._lock:
+            file = self.files.get(identifier)
+
+            if file is not None:
+                self.last_access[identifier] = self.time()
+                logger.debug("Accessed file '%s'", identifier)
+            else:
+                logger.debug("File '%s' not found in cache", identifier)
+            return file
+
+    async def set(self, identifier: str, file: PreparedFile) -> None:
+        async with self._lock:
+            if identifier in self.files:
+                logger.debug(
+                    "Updating existing file '%s' in cache", identifier)
+                self.cleanup_tasks.append(
+                    asyncio.create_task(
+                        self.client.delete_file(self.files[identifier].fileId)
+                    )
+                )
+            else:
+                logger.debug("Adding new file '%s' to cache", identifier)
+
+            self.files[identifier] = file
+            self.last_access[identifier] = self.time()
+
+        if self.recycle_task is None and not self._closed:
+            self.recycle_task = asyncio.create_task(self.recycle())
+            logger.debug("Started recycle task")
+
+
 class SandboxClient:
     def __init__(self, endpoint: str) -> None:
         self.endpoint = endpoint.strip('/')
         self.session = aiohttp.ClientSession()
+        self.cache = FileCache(client=self)
         logger.debug("Sandbox client initialized with: %s", self.endpoint)
 
     def __repr__(self) -> str:
@@ -26,6 +147,7 @@ class SandboxClient:
         await self.close()
 
     async def close(self) -> None:
+        await self.cache.close()
         await self.session.close()
         logger.debug("Sandbox client closed")
 

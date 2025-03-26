@@ -1,5 +1,7 @@
+import asyncio
 import pytest
-from judger import *
+from judger.models import PreparedFile
+from judger.client import SandboxClient, FileCache
 
 endpoint = 'http://localhost:5050'
 
@@ -19,7 +21,7 @@ async def test_client_repr():
 
 
 @pytest.mark.asyncio
-async def test_get_version():
+async def test_client_get_version():
     async with SandboxClient(endpoint) as client:
         version = await client.get_version()
         assert isinstance(version, dict)
@@ -27,7 +29,7 @@ async def test_get_version():
 
 
 @pytest.mark.asyncio
-async def test_file_manage():
+async def test_client_file_manage():
     async with SandboxClient(endpoint) as client:
 
         file = await client.upload_file(file_content)
@@ -44,12 +46,50 @@ async def test_file_manage():
 
 
 @pytest.mark.asyncio
-async def test_download_nonexistent_file():
+async def test_client_download_nonexistent_file():
     async with SandboxClient(endpoint) as client:
         assert await client.download_file("nonexistent") is None
 
 
 @pytest.mark.asyncio
-async def test_delete_nonexistent_file():
+async def test_client_delete_nonexistent_file():
     async with SandboxClient(endpoint) as client:
         assert not await client.delete_file("nonexistent")
+
+
+@pytest.mark.asyncio
+async def test_file_cache_basic():
+    async with SandboxClient(endpoint) as client:
+        test_file_1 = await client.upload_file(file_content)
+        await client.cache.set("test", test_file_1)
+        assert await client.cache.get("test") == test_file_1
+        test_file_2 = await client.upload_file(file_content)
+        await client.cache.set("test", test_file_2)
+        assert await client.cache.get("test") == test_file_2
+
+
+@pytest.mark.asyncio
+async def test_file_cache_recycle():
+    async with SandboxClient(endpoint) as client:
+        async with FileCache(client, expire=0.1, recycle_gap=0.05) as cache:
+            test_file = await client.upload_file(file_content)
+            await cache.set("test2", test_file)
+            await asyncio.sleep(0.2)
+            assert await cache.get("test2") is None
+
+
+@pytest.mark.asyncio
+async def test_file_cache_thread_safety():
+    async with SandboxClient(endpoint) as client:
+        async def worker(key: str):
+            file = await client.upload_file(key)
+            await client.cache.set(key, file)
+            assert await client.cache.get(key) == file
+        tasks = [asyncio.create_task(worker(f"key{i}")) for i in range(10)]
+        await asyncio.gather(*tasks)
+
+
+@pytest.mark.asyncio
+async def test_file_cache_close():
+    async with SandboxClient(endpoint) as client:
+        await client.cache.close()

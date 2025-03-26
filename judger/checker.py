@@ -1,4 +1,5 @@
 import logging
+from hashlib import sha256
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -17,6 +18,9 @@ from .models import (
 logger = logging.getLogger(f"{LOGGER_NAME}.checker")
 
 
+TESTLIB_PATH: Path = Path(__file__).parent / "testlib" / "testlib.h"
+
+
 class TestlibChecker:
 
     SOURCE_FILENAME: str = "Checker.cpp"
@@ -28,7 +32,6 @@ class TestlibChecker:
     RUN_CMD: List[str] = [
         "./Checker", "infile", "outfile", "ansfile"
     ]
-    TESTLIB_PATH: Path = Path(__file__).parent / "testlib" / "testlib.h"
 
     def __init__(
         self,
@@ -41,29 +44,35 @@ class TestlibChecker:
 
         logger.debug("Testlib checker initialized")
 
-    async def __aenter__(self) -> 'TestlibChecker':
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await self.close()
-
-    async def close(self) -> None:
-        if self.compiled_file is not None:
-            await self.client.delete_file(self.compiled_file.fileId)
-            logger.debug("Testlib checker closed")
-
     async def compile(self) -> None:
         if self.compiled_file is not None:
             return
+
+        checker_hash = sha256(self.code.encode()).hexdigest()
+        identifier = f"checker-{checker_hash}"
+
+        self.compiled_file = await self.client.cache.get(identifier)
+        if self.compiled_file is not None:
+            logger.debug("Get compiled checker from cache")
+            return
+
         logger.debug("Compiling checker")
 
-        if not self.TESTLIB_PATH.exists():
-            raise FileNotFoundError(
-                "Testlib header file not found: %s" %
-                self.TESTLIB_PATH
-            )
-        with open(self.TESTLIB_PATH, 'rt', encoding='utf-8') as f:
-            testlib_code = f.read()
+        testlib_file = await self.client.cache.get("testlib.h")
+        if testlib_file is None:
+            logger.debug("Testlib header file not found in cache")
+
+            if not TESTLIB_PATH.exists():
+                raise FileNotFoundError(
+                    "Testlib header file not found: %s" %
+                    TESTLIB_PATH
+                )
+            with open(TESTLIB_PATH, 'rt', encoding='utf-8') as f:
+                testlib_code = f.read()
+
+            testlib_file = await self.client.upload_file(testlib_code)
+            await self.client.cache.set("testlib.h", testlib_file)
+            logger.debug("Uploaded testlib header file")
 
         cmd = SandboxCmd(
             args=self.COMPILE_CMD,
@@ -73,10 +82,8 @@ class TestlibChecker:
                 Collector("stderr")
             ],
             copyIn={
-                self.SOURCE_FILENAME:
-                    MemoryFile(self.code),
-                "testlib.h":
-                    MemoryFile(testlib_code)
+                self.SOURCE_FILENAME: MemoryFile(self.code),
+                "testlib.h": testlib_file
             },
             copyOutCached=[
                 self.COMPILED_FILENAME
@@ -93,6 +100,7 @@ class TestlibChecker:
             )
         self.compiled_file = PreparedFile(
             compiled_result.fileIds[self.COMPILED_FILENAME])
+        await self.client.cache.set(identifier, self.compiled_file)
 
     async def check(
         self,
@@ -104,8 +112,7 @@ class TestlibChecker:
             "Checking with 'infile': %s, 'outfile': %s, 'ansfile': %s",
             input_file, output_file, answer_file
         )
-        if self.compiled_file is None:
-            await self.compile()
+        await self.compile()
 
         cmd = SandboxCmd(
             args=self.RUN_CMD,
@@ -169,38 +176,6 @@ class DefaultChecker(TestlibChecker):
             code_file
         )
 
-    async def compile(self) -> None:
-        if self.compiled_file is not None:
-            return
-        logger.debug("Compiling checker")
-
-        cmd = SandboxCmd(
-            args=self.COMPILE_CMD,
-            files=[
-                MemoryFile(""),
-                Collector("stdout"),
-                Collector("stderr")
-            ],
-            copyIn={
-                self.SOURCE_FILENAME:
-                    MemoryFile(self.code)
-            },
-            copyOutCached=[
-                self.COMPILED_FILENAME
-            ]
-        )
-        compiled_result = (
-            await self.client.run_command([cmd])
-        )[0]
-
-        if compiled_result.status != SandboxStatus.Accepted:
-            raise RuntimeError(
-                "Failed to compile: \n%s" %
-                compiled_result.files.get("stderr", "")
-            )
-        self.compiled_file = PreparedFile(
-            compiled_result.fileIds[self.COMPILED_FILENAME])
-
     async def check(
         self,
         input_file: Union[LocalFile, MemoryFile, PreparedFile],
@@ -211,8 +186,7 @@ class DefaultChecker(TestlibChecker):
             "Checking with 'tc.in': %s, 'tc.out': %s, 'user.out': %s",
             input_file, output_file, user_file
         )
-        if self.compiled_file is None:
-            await self.compile()
+        await self.compile()
 
         cmd = SandboxCmd(
             args=self.RUN_CMD,
