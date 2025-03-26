@@ -46,9 +46,8 @@ async def test_empty_testcases():
     )
 
     async with SandboxClient(endpoint) as client:
-        async with DefaultChecker(client) as checker:
-            judger = Judger(client, submission, checker)
-            result = await judger.get_result()
+        judger = Judger(client, submission)
+        result = await judger.get_result()
     assert result.judge == JudgeStatus.SystemError
     assert len(result.testcases) == 0
 
@@ -73,9 +72,8 @@ async def test_special_judge_accepted():
     )
 
     async with SandboxClient(endpoint) as client:
-        async with DefaultChecker(client) as checker:
-            judger = Judger(client, submission, checker)
-            result = await judger.get_result()
+        judger = Judger(client, submission)
+        result = await judger.get_result()
     assert result.judge == JudgeStatus.Accepted
     for testcase in result.testcases:
         assert testcase.judge == JudgeStatus.Accepted
@@ -99,9 +97,8 @@ async def test_special_judge_wrong_answer():
     )
 
     async with SandboxClient(endpoint) as client:
-        async with DefaultChecker(client) as checker:
-            judger = Judger(client, submission, checker)
-            result = await judger.get_result()
+        judger = Judger(client, submission)
+        result = await judger.get_result()
     assert result.judge == JudgeStatus.WrongAnswer
     for testcase in result.testcases:
         assert testcase.judge == JudgeStatus.WrongAnswer

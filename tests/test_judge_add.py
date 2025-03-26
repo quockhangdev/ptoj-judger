@@ -36,9 +36,8 @@ async def judge_code(
     )
 
     async with SandboxClient(endpoint) as client:
-        async with DefaultChecker(client) as checker:
-            judger = Judger(client, submission, checker)
-            result = await judger.get_result()
+        judger = Judger(client, submission)
+        result = await judger.get_result()
     return result
 
 

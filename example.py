@@ -62,10 +62,9 @@ int main()
     print(submission)
 
     async with SandboxClient(endpoint) as client:
-        async with DefaultChecker(client) as checker:
-            judger = Judger(client, submission, checker)
-            result = await judger.get_result()
-            print(result)
+        judger = Judger(client, submission)
+        result = await judger.get_result()
+        print(result)
 
 if __name__ == '__main__':
     asyncio.run(main())

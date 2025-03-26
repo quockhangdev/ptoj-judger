@@ -36,7 +36,6 @@ class Processor:
         self.scheduler: Scheduler = scheduler
         self.redis: Redis = Redis.from_url(redis_url)
         self.client: SandboxClient = SandboxClient(endpoint=sandbox_endpoint)
-        self.checker: DefaultChecker = DefaultChecker(client=self.client)
 
         logger.debug("Processor %d initialized", self.idx)
 
@@ -47,7 +46,6 @@ class Processor:
         await self.close()
 
     async def close(self) -> None:
-        await self.checker.close()
         await self.client.close()
         await self.redis.close()
         logger.debug("Processor %d closed", self.idx)
@@ -96,7 +94,7 @@ class Processor:
         )
 
         try:
-            judger = Judger(self.client, submission, self.checker)
+            judger = Judger(self.client, submission)
             result = await judger.get_result()
             await self.put_result(result)
 

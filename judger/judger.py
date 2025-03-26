@@ -52,8 +52,7 @@ class Judger:
     def __init__(
         self,
         client: SandboxClient,
-        submission: Submission,
-        checker: DefaultChecker
+        submission: Submission
     ) -> None:
         logger.debug(
             "Initialing Judger with client: %s, submission: %s",
@@ -84,7 +83,7 @@ class Judger:
             )
 
         if self.submission.type == ProblemType.Traditional:
-            self.checker = checker
+            self.checker = DefaultChecker(client=self.client)
         elif self.submission.type == ProblemType.Interaction:
             raise NotImplementedError(
                 "Interaction problem type is not supported yet"
@@ -223,10 +222,6 @@ class Judger:
                 asyncio.create_task(
                     self.client.delete_file(self.compiled_file.fileId)
                 )
-            )
-        if self.submission.type != ProblemType.Traditional:
-            self.cleanup_tasks.append(
-                asyncio.create_task(self.checker.close())
             )
         await asyncio.gather(*self.cleanup_tasks)
         self.cleanup_tasks.clear()
