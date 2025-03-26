@@ -55,6 +55,15 @@ class Language(int, Enum):
         return f"{self.__class__.__name__}.{self.name}"
 
 
+class ProblemType(int, Enum):
+    Traditional = 1
+    Interaction = 2
+    SpecialJudge = 3
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}.{self.name}"
+
+
 @dataclass
 class LocalFile:
     src: str
@@ -152,6 +161,8 @@ class Submission:
     testcases: List[Testcase]
     language: Language
     code: str
+    type: ProblemType = field(default=ProblemType.Traditional)
+    additionCode: Optional[str] = ""
 
     def __post_init__(self):
         if not isinstance(self.language, Language):

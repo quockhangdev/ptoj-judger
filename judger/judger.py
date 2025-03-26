@@ -1,15 +1,15 @@
 import asyncio
 import logging
-from pathlib import Path
-from typing import List, Optional, Set, Union
+from typing import List, Optional, Set
 
 from .client import SandboxClient
-from .config import DEFAULT_CHECKER, LOGGER_NAME
+from .checker import TestlibChecker, DefaultChecker
+from .config import LOGGER_NAME
 from .language import LanguageRegistry
 from .models import (
     JudgeStatus,
     SandboxStatus,
-    LocalFile,
+    ProblemType,
     MemoryFile,
     PreparedFile,
     Collector,
@@ -21,121 +21,6 @@ from .models import (
 )
 
 logger = logging.getLogger(f"{LOGGER_NAME}.judger")
-
-
-class DefaultChecker:
-
-    SOURCE_FILENAME: str = "SPJ.c"
-    COMPILED_FILENAME: str = "SPJ"
-    COMPILE_CMD: List[str] = [
-        "/usr/bin/g++-12", "SPJ.c", "-o", "SPJ"
-    ]
-    RUN_CMD: List[str] = [
-        "./SPJ", "tc.in", 'tc.out', 'user.out'
-    ]
-
-    STATUS_MAP: dict[int, JudgeStatus] = {
-        0: JudgeStatus.Accepted,
-        1: JudgeStatus.WrongAnswer,
-        2: JudgeStatus.PresentationError
-    }
-
-    def __init__(
-        self,
-        client: SandboxClient,
-        code_file: Union[str, Path] = DEFAULT_CHECKER
-    ) -> None:
-        self.client = client
-        self.code_file = code_file
-        self.compiled_file: Optional[PreparedFile] = None
-
-        logger.debug(
-            "Checker initialized with code file: '%s'",
-            code_file
-        )
-
-    async def __aenter__(self) -> 'DefaultChecker':
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await self.close()
-
-    async def close(self) -> None:
-        if self.compiled_file is not None:
-            await self.client.delete_file(self.compiled_file.fileId)
-            logger.debug("Checker closed")
-
-    async def compile(self) -> None:
-        if self.compiled_file is not None:
-            return
-        logger.debug("Compiling checker")
-
-        with open(self.code_file, 'rt', encoding='utf-8') as f:
-            checker_code = f.read()
-
-        cmd = SandboxCmd(
-            args=self.COMPILE_CMD,
-            files=[
-                MemoryFile(""),
-                Collector("stdout"),
-                Collector("stderr")
-            ],
-            copyIn={
-                self.SOURCE_FILENAME:
-                    MemoryFile(checker_code)
-            },
-            copyOutCached=[
-                self.COMPILED_FILENAME
-            ]
-        )
-        compiled_result = (
-            await self.client.run_command([cmd])
-        )[0]
-
-        if compiled_result.status != SandboxStatus.Accepted:
-            raise RuntimeError(
-                "Failed to compile: \n%s" %
-                compiled_result.files.get("stderr", "")
-            )
-        self.compiled_file = PreparedFile(compiled_result.fileIds['SPJ'])
-
-    async def check(
-        self,
-        input_file: Union[LocalFile, MemoryFile, PreparedFile],
-        output_file: Union[LocalFile, MemoryFile, PreparedFile],
-        user_file: Union[LocalFile, MemoryFile, PreparedFile]
-    ) -> JudgeStatus:
-        logger.debug(
-            "Checking with 'tc.in': %s, 'tc.out': %s, 'user.out': %s",
-            input_file, output_file, user_file
-        )
-        if self.compiled_file is None:
-            await self.compile()
-
-        cmd = SandboxCmd(
-            args=self.RUN_CMD,
-            files=[
-                MemoryFile(""),
-                Collector("stdout"),
-                Collector("stderr")
-            ],
-            copyIn={
-                self.COMPILED_FILENAME: self.compiled_file,
-                "tc.in": input_file,
-                "tc.out": output_file,
-                "user.out": user_file
-            }
-        )
-        checker_result = (
-            await self.client.run_command([cmd])
-        )[0]
-
-        if checker_result.exitStatus not in self.STATUS_MAP:
-            raise RuntimeError(
-                "Checker failed with unexpected exit status: %d" %
-                checker_result.exitStatus
-            )
-        return self.STATUS_MAP.get(checker_result.exitStatus)
 
 
 class Judger:
@@ -177,7 +62,6 @@ class Judger:
         self.client = client
         self.submission = submission
 
-        self.checker = checker
         self.result = SubmissionResult(
             sid=self.submission.sid,
             judge=JudgeStatus.Pending
@@ -198,6 +82,23 @@ class Judger:
                 self.submission.sid,
                 self.submission.language
             )
+
+        if self.submission.type == ProblemType.Traditional:
+            self.checker = checker
+        elif self.submission.type == ProblemType.Interaction:
+            raise NotImplementedError(
+                "Interaction problem type is not supported yet"
+            )
+        elif self.submission.type == ProblemType.SpecialJudge:
+            self.checker = TestlibChecker(
+                client=self.client,
+                code=self.submission.additionCode
+            )
+        else:
+            raise ValueError(
+                f"Unsupported problem type: {self.submission.type}"
+            )
+
         logger.debug("Submission %d initialized", self.submission.sid)
 
     async def compile(self) -> None:
@@ -322,6 +223,10 @@ class Judger:
                 asyncio.create_task(
                     self.client.delete_file(self.compiled_file.fileId)
                 )
+            )
+        if self.submission.type != ProblemType.Traditional:
+            self.cleanup_tasks.append(
+                asyncio.create_task(self.checker.close())
             )
         await asyncio.gather(*self.cleanup_tasks)
         self.cleanup_tasks.clear()
