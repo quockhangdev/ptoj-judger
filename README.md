@@ -84,6 +84,7 @@ Refer to [example.py](example.py) and [main.py](main.py) for more details on usa
 Run the following command to execute the test suite:
 
 ```bash
+pip install pytest pytest-asyncio pytest-cov
 pytest --cov=judger
 ```
 
