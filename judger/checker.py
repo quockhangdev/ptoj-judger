@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 from .client import SandboxClient
-from .config import DEFAULT_CHECKER, LOGGER_NAME
+from .config import DEFAULT_CHECKER, LOGGER_NAME, TESTLIB_PATH
 from .models import (
     JudgeStatus,
     SandboxStatus,
@@ -16,9 +16,6 @@ from .models import (
 )
 
 logger = logging.getLogger(f"{LOGGER_NAME}.checker")
-
-
-TESTLIB_PATH: Path = Path(__file__).parent / "testlib" / "testlib.h"
 
 
 class TestlibChecker:

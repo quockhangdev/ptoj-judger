@@ -18,3 +18,5 @@ DEFAULT_CPU_RATE_LIMIT = 1000
 DEFAULT_OUTPUT_LIMIT = 8 * 1024 * 1024
 # 默认检查器
 DEFAULT_CHECKER = Path(__file__).parent / 'checkers' / 'default.cpp'
+# 测试库路径
+TESTLIB_PATH: Path = Path(__file__).parent / "testlib" / "testlib.h"
