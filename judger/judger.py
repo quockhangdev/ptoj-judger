@@ -84,18 +84,10 @@ class Judger:
 
         if self.submission.type == ProblemType.Traditional:
             self.checker = DefaultChecker(client=self.client)
-        elif self.submission.type == ProblemType.Interaction:
-            raise NotImplementedError(
-                "Interaction problem type is not supported yet"
-            )
-        elif self.submission.type == ProblemType.SpecialJudge:
+        else:
             self.checker = TestlibChecker(
                 client=self.client,
                 code=self.submission.additionCode
-            )
-        else:
-            raise ValueError(
-                f"Unsupported problem type: {self.submission.type}"
             )
 
         logger.debug("Submission %d initialized", self.submission.sid)
@@ -148,7 +140,10 @@ class Judger:
                 self.submission.sid, e
             )
 
-    async def run_testcase(self, testcase: Testcase) -> TestcaseResult:
+    async def run_testcase_tradition(
+        self,
+        testcase: Testcase
+    ) -> TestcaseResult:
         logger.debug("Running testcase: '%s'", testcase.uuid)
         result = TestcaseResult(
             uuid=testcase.uuid,
@@ -213,6 +208,94 @@ class Judger:
             testcase.uuid, result.judge
         )
         return result
+
+    async def run_testcase_interaction(
+        self,
+        testcase: Testcase
+    ) -> TestcaseResult:
+        logger.debug("Running testcase: '%s'", testcase.uuid)
+        result = TestcaseResult(
+            uuid=testcase.uuid,
+            judge=JudgeStatus.RunningJudge
+        )
+
+        def get_runtime_dependencies() -> dict:
+            if self.language.need_compile:
+                return {
+                    self.language.compiled_filename:
+                        self.compiled_file
+                }
+            else:
+                return {
+                    self.language.source_filename:
+                        MemoryFile(self.submission.code)
+                }
+
+        timeLimit = 1_000_000 * \
+            self.submission.timeLimit * self.language.time_factor
+        memoryLimit = 1024 * \
+            self.submission.memoryLimit * self.language.memory_factor
+
+        cmdUser = SandboxCmd(
+            args=self.language.run_cmd,
+            cpuLimit=timeLimit,
+            clockLimit=timeLimit * 2,
+            memoryLimit=memoryLimit,
+            files=[
+                None, None,
+                Collector("stderr")
+            ],
+            copyIn=get_runtime_dependencies(),
+        )
+        cmdInteractor = SandboxCmd(
+            args=[
+                './Interactor', 'infile', 'outfile', 'ansfile'
+            ],
+            files=[
+                None, None,
+                Collector("stderr")
+            ],
+            copyIn={
+                "Interactor": self.checker.compiled_file,
+                "infile": testcase.input,
+                "outfile": MemoryFile(""),
+                "ansfile": testcase.output
+            }
+        )
+
+        run_results = await self.client.run_command(
+            [cmdUser, cmdInteractor],
+            [
+                {"in": {"index": 0, "fd": 1},
+                 "out": {"index": 1, "fd": 0}},
+                {"in": {"index": 1, "fd": 1},
+                 "out": {"index": 0, "fd": 0}}
+            ]
+        )
+        user_result, interactor_result = run_results
+
+        result.time = min(user_result.time, timeLimit) // 1_000_000
+        result.memory = min(user_result.memory, memoryLimit) // 1024
+
+        if user_result.status != SandboxStatus.Accepted:
+            result.judge = self.STATUS_MAP.get(
+                user_result.status, JudgeStatus.SystemError)
+        elif interactor_result.status != SandboxStatus.Accepted:
+            result.judge = JudgeStatus.WrongAnswer
+        else:
+            result.judge = JudgeStatus.Accepted
+
+        logger.debug(
+            "Testcase '%s' finished with judge status: '%s'",
+            testcase.uuid, result.judge
+        )
+        return result
+
+    async def run_testcase(self, testcase: Testcase) -> TestcaseResult:
+        if self.submission.type == ProblemType.Interaction:
+            return await self.run_testcase_interaction(testcase)
+        else:
+            return await self.run_testcase_tradition(testcase)
 
     async def cleanup(self) -> None:
         logger.debug("Submission %d cleanup started", self.submission.sid)

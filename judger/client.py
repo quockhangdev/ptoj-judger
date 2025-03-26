@@ -152,10 +152,14 @@ class SandboxClient:
         logger.debug("Sandbox client closed")
 
     async def run_command(
-        self, commands: List[SandboxCmd]
+        self,
+        commands: List[SandboxCmd],
+        pipeMapping: Optional[List[Dict]] = None
     ) -> List[SandboxResult]:
         url = f'{self.endpoint}/run'
         payload = {"cmd": [asdict(c) for c in commands]}
+        if pipeMapping:
+            payload["pipeMapping"] = pipeMapping
         logger.debug("Sending run command: %s", payload)
 
         async with self.session.post(url, json=payload) as resp:

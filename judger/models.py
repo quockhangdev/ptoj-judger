@@ -90,7 +90,7 @@ class SandboxCmd:
     args: List[str]
     env: List[str] = field(default_factory=lambda: ["PATH=/usr/bin:/bin"])
 
-    files: List[Union[LocalFile, MemoryFile, PreparedFile, Collector]] = \
+    files: List[Union[LocalFile, MemoryFile, PreparedFile, Collector, None]] = \
         field(default_factory=list)
 
     cpuLimit: int = field(default=DEFAULT_TIME_LIMIT)
