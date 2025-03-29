@@ -280,8 +280,13 @@ class Judger:
         if user_result.status != SandboxStatus.Accepted:
             result.judge = self.STATUS_MAP.get(
                 user_result.status, JudgeStatus.SystemError)
+        elif interactor_result.status == SandboxStatus.NonzeroExitStatus:
+            result.judge = {
+                1: JudgeStatus.WrongAnswer,
+                2: JudgeStatus.PresentationError,
+            }.get(interactor_result.exitStatus, JudgeStatus.RuntimeError)
         elif interactor_result.status != SandboxStatus.Accepted:
-            result.judge = JudgeStatus.WrongAnswer
+            result.judge = JudgeStatus.SystemError
         else:
             result.judge = JudgeStatus.Accepted
 
