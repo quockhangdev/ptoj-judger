@@ -25,6 +25,7 @@ class JudgeStatus(int, Enum):
     SystemError = 10
     RejudgePending = 11
     Skipped = 12
+    PartiallyAccepted = 13
 
     def __repr__(self):
         return f"{self.__class__.__name__}.{self.name}"
@@ -39,6 +40,7 @@ class SandboxStatus(str, Enum):
     NonzeroExitStatus = 'Nonzero Exit Status'
     Signalled = 'Signalled'
     InternalError = 'Internal Error'
+    PartiallyAccepted = 'Partially Accepted'
 
     def __repr__(self):
         return f"{self.__class__.__name__}.{self.name}"
@@ -50,6 +52,8 @@ class Language(int, Enum):
     Java = 3
     Python = 4
     Cpp17 = 5
+    Cpp20 = 6
+    Cpp23 = 7
 
     def __repr__(self):
         return f"{self.__class__.__name__}.{self.name}"

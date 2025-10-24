@@ -388,12 +388,25 @@ class Judger:
         self.result.memory = max(
             testcase.memory for testcase in self.result.testcases
         )
+        
+        # Final aggregation of results
+        # 1. All testcases Accepted -> Accepted
+        # 2. Some testcases Accepted -> Partially Accepted
+        # 3. Otherwise, the highest priority status among testcases
 
+        # ==== 1. All Accepted ====
         if all(
             testcase.judge == JudgeStatus.Accepted
             for testcase in self.result.testcases
         ):
             self.result.judge = JudgeStatus.Accepted
+        # ==== 2. Some Accepted ====
+        elif any(
+            testcase.judge == JudgeStatus.Accepted
+            for testcase in self.result.testcases
+        ):
+            self.result.judge = JudgeStatus.PartiallyAccepted
+        # ==== 3. Highest Priority Status ====
         else:
             for status in self.STATUS_PRIORITY:
                 if any(
