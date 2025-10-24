@@ -83,6 +83,40 @@ LanguageRegistry.register(
 )
 
 LanguageRegistry.register(
+    Language.Cpp20,
+    LanguageConfig(
+        source_filename="Main.cpp",
+        compiled_filename="Main",
+        need_compile=True,
+        compile_cmd=[
+            "/usr/bin/g++-12", "Main.cpp", "-o", "Main",
+            "-std=c++20", "-O2", "-lm", "-DONLINE_JUDGE",
+            "-w", "-fmax-errors=3", "--static"
+        ],
+        run_cmd=[
+            "./Main"
+        ]
+    )
+)
+
+LanguageRegistry.register(
+    Language.Cpp23,
+    LanguageConfig(
+        source_filename="Main.cpp",
+        compiled_filename="Main",
+        need_compile=True,
+        compile_cmd=[
+            "/usr/bin/g++-12", "Main.cpp", "-o", "Main",
+            "-std=c++23", "-O2", "-lm", "-DONLINE_JUDGE",
+            "-w", "-fmax-errors=3", "--static"
+        ],
+        run_cmd=[
+            "./Main"
+        ]
+    )
+)
+
+LanguageRegistry.register(
     Language.Java,
     LanguageConfig(
         source_filename="Main.java",
