@@ -46,7 +46,7 @@ async def main():
     )
     init_concurrent: int = int(os.getenv(
         'PTOJ_INIT_CONCURRENT',
-        '1'
+        '4'
     ))
     log_file: Optional[str] = os.getenv(
         'PTOJ_LOG_FILE',
