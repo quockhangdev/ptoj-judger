@@ -45,7 +45,7 @@ class Judger:
 
     SKIP_STATUS: Set[JudgeStatus] = {
         JudgeStatus.MemoryLimitExceeded,
-        JudgeStatus.TimeLimitExceeded,
+        # JudgeStatus.TimeLimitExceeded, # disable TLE skip for partial scoring
         JudgeStatus.OutputLimitExceeded
     }
 
