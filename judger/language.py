@@ -115,8 +115,25 @@ LanguageRegistry.register(
             ])
         ],
         run_cmd=[
-            "/usr/bin/env", "ONLINE_JUDGE=1",
             "/usr/bin/python3.11", "Main.pyc"
+        ]
+    )
+)
+
+LanguageRegistry.register(
+    Language.PyPy,
+    LanguageConfig(
+        source_filename="Main.py",
+        compiled_filename="Main.pyc",
+        need_compile=True,
+        compile_cmd=[
+            "/usr/bin/bash", "-c", " ".join([
+                "/usr/bin/pypy3", "-m", "py_compile", "Main.py", "&&",
+                "mv", "__pycache__/Main.pypy39.pyc", "Main.pyc"
+            ])
+        ],
+        run_cmd=[
+            "/usr/bin/pypy3", "Main.pyc"
         ]
     )
 )

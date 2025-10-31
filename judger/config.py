@@ -19,4 +19,6 @@ DEFAULT_OUTPUT_LIMIT = 16 * 1024 * 1024
 # 默认检查器
 DEFAULT_CHECKER = Path(__file__).parent / 'checkers' / 'default.cpp'
 # 测试库路径
-TESTLIB_PATH: Path = Path(__file__).parent / "testlib" / "testlib.h"
+TESTLIB_PATH = Path(__file__).parent / "testlib" / "testlib.h"
+# 默认沙箱环境变量
+DEFAULT_SANDBOX_ENV = ["PATH=/usr/bin:/bin", "ONLINE_JUDGE=1"]
