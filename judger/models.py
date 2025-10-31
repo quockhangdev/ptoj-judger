@@ -7,7 +7,8 @@ from .config import (
     DEFAULT_MEMORY_LIMIT,
     DEFAULT_PROC_LIMIT,
     DEFAULT_CPU_RATE_LIMIT,
-    DEFAULT_OUTPUT_LIMIT
+    DEFAULT_OUTPUT_LIMIT,
+    DEFAULT_SANDBOX_ENV
 )
 
 
@@ -49,11 +50,12 @@ class SandboxStatus(str, Enum):
 class Language(int, Enum):
     C = 1
     Cpp11 = 2
-    Java = 3
-    Python = 4
     Cpp17 = 5
     Cpp20 = 6
     Cpp23 = 7
+    Java = 3
+    PyPy = 8
+    Python = 4
 
     def __repr__(self):
         return f"{self.__class__.__name__}.{self.name}"
@@ -92,7 +94,7 @@ class Collector:
 @dataclass
 class SandboxCmd:
     args: List[str]
-    env: List[str] = field(default_factory=lambda: ["PATH=/usr/bin:/bin"])
+    env: List[str] = field(default_factory=lambda: DEFAULT_SANDBOX_ENV.copy())
 
     files: List[Union[LocalFile, MemoryFile, PreparedFile, Collector, None]] = \
         field(default_factory=list)

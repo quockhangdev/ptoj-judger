@@ -6,18 +6,18 @@ endpoint = 'http://localhost:5050'
 testcases = [
     Testcase(
         uuid='fdc3a68e-21d2-4ec1-baf6-36611f45f685',
-        input=MemoryFile("1 1\n"),
-        output=MemoryFile("2\n")
+        input=MemoryFile("1 1\n1 2\n2 1\n"),
+        output=MemoryFile("2\n3\n3\n")
     ),
     Testcase(
         uuid='f34bbc92-1461-422e-8f61-26e6790a36a8',
-        input=MemoryFile("1 -1\n"),
-        output=MemoryFile("0\n")
+        input=MemoryFile("114 514\n1919 810\n"),
+        output=MemoryFile("628\n2729\n")
     ),
     Testcase(
         uuid='ae005ba0-8c29-446d-82c0-219fef264fba',
-        input=MemoryFile("0 0\n"),
-        output=MemoryFile("0\n")
+        input=MemoryFile("-2147483648 2147483647\n0 0\n"),
+        output=MemoryFile("-1\n0\n")
     )
 ]
 
@@ -95,7 +95,7 @@ public class Main {
 	}
 }
 """, Language.Java)
-    
+
     assert result.judge == JudgeStatus.Accepted
     for testcase in result.testcases:
         assert testcase.judge == JudgeStatus.Accepted
@@ -110,6 +110,23 @@ for line in sys.stdin:
     a, b = map(int, line.split())
     print(a + b)
 """, Language.Python)
+
+    assert result.judge == JudgeStatus.Accepted
+    for testcase in result.testcases:
+        assert testcase.judge == JudgeStatus.Accepted
+
+
+@pytest.mark.asyncio
+async def test_language_pypy():
+
+    result = await judge_code(r"""
+while True:
+    try:
+        a, b = map(int, input().split())
+    except EOFError as e:
+        break
+    print(a + b)
+""", Language.PyPy)
 
     assert result.judge == JudgeStatus.Accepted
     for testcase in result.testcases:
