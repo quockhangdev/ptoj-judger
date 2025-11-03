@@ -45,9 +45,12 @@ class Judger:
 
     SKIP_STATUS: Set[JudgeStatus] = {
         JudgeStatus.MemoryLimitExceeded,
-        # JudgeStatus.TimeLimitExceeded, # disable TLE skip for partial scoring
+        JudgeStatus.TimeLimitExceeded,
         JudgeStatus.OutputLimitExceeded
     }
+
+    CTYPE_ICPC: int = 1000
+    CTYPE_OI: int = 2000
 
     def __init__(
         self,
@@ -371,8 +374,9 @@ class Judger:
                         self.submission.sid, testcase.uuid, e
                     )
             self.result.testcases.append(testcase_result)
-
-            if testcase_result.judge in self.SKIP_STATUS:
+            
+            # Check if we need to skip remaining testcases, only for ICPC style
+            if testcase_result.judge in self.SKIP_STATUS and self.submission.ctype != self.CTYPE_OI:
                 skipped = True
 
         if len(self.result.testcases) == 0:
@@ -391,7 +395,7 @@ class Judger:
         
         # Final aggregation of results
         # 1. All testcases Accepted -> Accepted
-        # 2. Some testcases Accepted -> Partially Accepted
+        # 2. Some testcases Accepted -> Partially Accepted (if OI)
         # 3. Otherwise, the highest priority status among testcases
 
         # ==== 1. All Accepted ====
@@ -401,7 +405,7 @@ class Judger:
         ):
             self.result.judge = JudgeStatus.Accepted
         # ==== 2. Some Accepted ====
-        elif any(
+        elif self.submission.ctype == self.CTYPE_OI and any(
             testcase.judge == JudgeStatus.Accepted
             for testcase in self.result.testcases
         ):

@@ -169,6 +169,7 @@ class Submission:
     code: str
     type: ProblemType = field(default=ProblemType.Traditional)
     additionCode: Optional[str] = ""
+    ctype: Optional[int] = 1000 # Contest Type: 1000 for ICPC, 2000 for OI
 
     def __post_init__(self):
         if not isinstance(self.language, Language):
