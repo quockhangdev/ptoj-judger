@@ -275,6 +275,10 @@ class Judger:
                  "out": {"index": 0, "fd": 0}}
             ]
         )
+        print("Run results:")
+        print(run_results)
+        print("-----" * 10)
+
         user_result, interactor_result = run_results
 
         result.time = min(user_result.time, timeLimit) // 1_000_000
